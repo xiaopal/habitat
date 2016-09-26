@@ -21,7 +21,7 @@ import {Origin} from "../records/Origin";
 import {PackageBreadcrumbsComponent} from "../PackageBreadcrumbsComponent";
 import {PackageListComponent} from "./PackageListComponent";
 import {SpinnerComponent} from "../SpinnerComponent";
-import {isPackage, packageString} from "../util";
+import {isPackage, packageString, isSignedIn} from "../util";
 import {fetchPackage, fetchProject, setProjectHint, requestRoute} from "../actions/index";
 import {BuilderApiClient} from "../BuilderApiClient";
 import {TabComponent} from "../TabComponent";
@@ -53,7 +53,7 @@ import {PackageInfoComponent} from "../package-info/PackageInfoComponent";
     <div *ngIf="showRepoButton" class="project-header">
       <button class="build-project-button" (click)="createProject()">Connect a repo</button> As a member of the {{origin}} origin, you can setup automated builds for this package by connecting a repo.
     </div>
-    <div *ngIf="showRepoButton" class="page-body has-sidebar">
+    <div class="page-body has-sidebar">
       <hab-package-info [package]="package"></hab-package-info>
     </div>
     <tabs *ngIf="!ui.loading && ui.exists && projectExists">
@@ -156,7 +156,9 @@ export class PackagePageComponent implements OnInit {
     }
 
     private fetchProject() {
-        this.store.dispatch(fetchProject(this.projectId, this.token, false));
+        if (isSignedIn()) {
+            this.store.dispatch(fetchProject(this.projectId, this.token, false));
+        }
     }
 
     private packageString(params) { return packageString(params); }
