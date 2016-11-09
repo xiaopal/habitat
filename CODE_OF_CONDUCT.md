@@ -5,7 +5,7 @@ Diversity is one of the greatest strengths a community can have and many times
 that strength is born from the friction that can only come through sharing of
 differing perspectives.
 
-In the interest of fostering an open, welcoming and enouraging environment, we as
+In the interest of fostering an open, welcoming, and encouraging environment, we as
 contributors and maintainers pledge to making participation in our project and
 our community a harassment-free experience for everyone, regardless of age, body
 size, disability, ethnicity, gender identity and expression, level of experience,
@@ -94,7 +94,7 @@ The advocate should take the following steps if the behavior is not brought inli
 
 #### Documenting Incidents
 
-All incident reports will be kept in a private repository that is shared with the advocates, maintainers and Community Manager..
+All incident reports will be kept in a private repository that is shared with the advocates, maintainers and Community Manager.
 
 The important information to report consists of:
 
