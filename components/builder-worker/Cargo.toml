@@ -3,7 +3,7 @@ name = "habitat_builder_worker"
 version = "0.0.0"
 authors = ["Adam Jacob <adam@chef.io>", "Jamie Winsor <reset@chef.io>", "Fletcher Nichol <fnichol@chef.io>", "Joshua Timberman <joshua@chef.io>", "Dave Parfitt <dparfitt@chef.io>"]
 description = "Habitat-Builder Worker"
-build = "../bldr-build.rs"
+build = "build.rs"
 workspace = "../../"
 
 [[bin]]
@@ -16,6 +16,7 @@ git2 = "*"
 lazy_static = "*"
 log = "*"
 protobuf = "*"
+serde = "*"
 toml = { version = "*", features = ["serde"], default-features = false }
 
 [dependencies.clap]
@@ -35,8 +36,14 @@ path = "../net"
 [dependencies.habitat_depot_client]
 path = "../builder-depot-client"
 
+[dependencies.builder_core]
+path = "../builder-core"
+
 [dependencies.habitat_builder_protocol]
 path = "../builder-protocol"
+
+[build-dependencies]
+serde_codegen = "*"
 
 [features]
 functional = []

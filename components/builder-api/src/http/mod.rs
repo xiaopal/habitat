@@ -15,6 +15,8 @@
 //! A module containing the HTTP server and handlers for servicing client requests
 
 pub mod handlers;
+pub mod headers;
+mod helpers;
 
 use std::sync::{mpsc, Arc};
 use std::thread::{self, JoinHandle};
@@ -44,6 +46,7 @@ pub fn router(config: Arc<Config>) -> Result<Chain> {
     let router = router!(
         status: get "/status" => status,
         authenticate: get "/authenticate/:code" => github_authenticate,
+        notify: post "/notify" => notify,
 
         jobs: post "/jobs" => XHandler::new(job_create).before(bldr.clone()),
         job: get "/jobs/:id" => XHandler::new(job_show).before(bldr.clone()),

@@ -68,7 +68,7 @@ impl Workspace {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct LastBuild {
     pub pkg_origin: String,
     pub pkg_name: String,
@@ -105,21 +105,6 @@ impl LastBuild {
                 "pkg_blake2bsum" => env.pkg_blake2bsum = split[1].to_string(),
                 field => warn!("unknown field={}", field),
             }
-        }
-    }
-}
-
-impl Default for LastBuild {
-    fn default() -> Self {
-        LastBuild {
-            pkg_origin: "".to_string(),
-            pkg_name: "".to_string(),
-            pkg_version: "".to_string(),
-            pkg_release: "".to_string(),
-            pkg_ident: "".to_string(),
-            pkg_artifact: "".to_string(),
-            pkg_sha256sum: "".to_string(),
-            pkg_blake2bsum: "".to_string(),
         }
     }
 }

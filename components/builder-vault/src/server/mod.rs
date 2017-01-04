@@ -22,7 +22,9 @@ use zmq;
 
 use dbcache::data_store::Pool;
 use hab_net::{Application, Supervisor};
+use hab_net::config::RouteAddrs;
 use hab_net::dispatcher::prelude::*;
+use hab_net::routing::Broker;
 use hab_net::server::{Envelope, NetIdent, RouteConn, Service, ZMQ_CONTEXT};
 
 use config::Config;
@@ -67,32 +69,33 @@ impl Dispatcher for Worker {
                 sock: &mut zmq::Socket,
                 state: &mut ServerState)
                 -> Result<()> {
-        match message.message_id() {
-            "AccountInvitationListRequest" => {
-                handlers::account_invitation_list(message, sock, state)
-            }
-            "CheckOriginAccessRequest" => handlers::origin_check_access(message, sock, state),
-            "OriginCreate" => handlers::origin_create(message, sock, state),
-            "OriginGet" => handlers::origin_get(message, sock, state),
-            "OriginInvitationAcceptRequest" => {
-                handlers::origin_invitation_accept(message, sock, state)
-            }
-            "OriginInvitationCreate" => handlers::origin_invitation_create(message, sock, state),
-            "OriginInvitationListRequest" => handlers::origin_invitation_list(message, sock, state),
-            "OriginList" => handlers::origin_list(message, sock, state),
-            "OriginMemberListRequest" => handlers::origin_member_list(message, sock, state),
-            "AccountOriginListRequest" => handlers::account_origin_list(message, sock, state),
-            "OriginSecretKeyCreate" => handlers::origin_secret_key_create(message, sock, state),
-            "OriginSecretKeyGet" => handlers::origin_secret_key_get(message, sock, state),
-            "ProjectCreate" => handlers::project_create(message, sock, state),
-            "ProjectDelete" => handlers::project_delete(message, sock, state),
-            "ProjectGet" => handlers::project_get(message, sock, state),
-            "ProjectUpdate" => handlers::project_update(message, sock, state),
+        let func = match message.message_id() {
+            "AccountInvitationListRequest" => handlers::account_invitation_list,
+            "CheckOriginAccessRequest" => handlers::origin_check_access,
+            "OriginCreate" => handlers::origin_create,
+            "OriginGet" => handlers::origin_get,
+            "OriginInvitationAcceptRequest" => handlers::origin_invitation_accept,
+            "OriginInvitationCreate" => handlers::origin_invitation_create,
+            "OriginInvitationListRequest" => handlers::origin_invitation_list,
+            "OriginList" => handlers::origin_list,
+            "OriginMemberListRequest" => handlers::origin_member_list,
+            "AccountOriginListRequest" => handlers::account_origin_list,
+            "OriginSecretKeyCreate" => handlers::origin_secret_key_create,
+            "OriginSecretKeyGet" => handlers::origin_secret_key_get,
+            "ProjectAssociate" => handlers::project_associate,
+            "ProjectCreate" => handlers::project_create,
+            "ProjectDelete" => handlers::project_delete,
+            "ProjectDisassociate" => handlers::project_disassociate,
+            "ProjectGet" => handlers::project_get,
+            "ProjectUpdate" => handlers::project_update,
+            "ProjectSearch" => handlers::project_search,
+            "ProjectStateSet" => handlers::project_state_set,
             _ => {
                 debug!("dispatch: unhandled message: {}", message.message_id());
-                Ok(())
+                return Ok(());
             }
-        }
+        };
+        func(message, sock, state)
     }
 
     fn new(config: Arc<RwLock<Config>>) -> Self {
@@ -148,7 +151,12 @@ impl Application for Server {
         let sup: Supervisor<Worker> = Supervisor::new(cfg, init_state);
         try!(sup.start());
         try!(self.connect());
+        let broker = {
+            let cfg = self.config.read().unwrap();
+            Broker::run(Self::net_ident(), cfg.route_addrs())
+        };
         try!(zmq::proxy(&mut self.router.socket, &mut self.be_sock));
+        broker.join().unwrap();
         Ok(())
     }
 }

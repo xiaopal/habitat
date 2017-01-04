@@ -17,9 +17,13 @@ extern crate habitat_builder_protocol as protocol;
 extern crate habitat_core as hab_core;
 extern crate habitat_net as hab_net;
 #[macro_use]
+extern crate lazy_static;
+#[macro_use]
 extern crate log;
 extern crate protobuf;
 extern crate redis;
+extern crate regex;
+extern crate serde;
 extern crate toml;
 #[macro_use]
 extern crate zmq;
@@ -27,7 +31,12 @@ extern crate zmq;
 pub mod config;
 pub mod data_store;
 pub mod error;
+mod project;
 pub mod server;
 
 pub use self::config::Config;
 pub use self::error::{Error, Result};
+
+mod types {
+    include!(concat!(env!("OUT_DIR"), "/serde_types.rs"));
+}

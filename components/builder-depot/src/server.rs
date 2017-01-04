@@ -19,8 +19,7 @@ use std::result;
 
 use bodyparser;
 use dbcache::{self, BasicSet};
-use hab_core::package::{Identifiable, FromArchive, PackageArchive, PackageTarget};
-use hab_core::os::system::{Architecture, Platform};
+use hab_core::package::{Identifiable, FromArchive, PackageArchive};
 use hab_core::crypto::keys::{self, PairType};
 use hab_core::crypto::SigKeyPair;
 use hab_core::event::*;
@@ -48,13 +47,12 @@ use serde_json;
 use url;
 use urlencoded::UrlEncodedQuery;
 
+pub use types::http::*;
 use super::Depot;
 use config::Config;
 use error::{Error, Result};
 
 define_event_log!();
-
-include!(concat!(env!("OUT_DIR"), "/serde_types.rs"));
 
 const PAGINATION_RANGE_DEFAULT: isize = 0;
 const PAGINATION_RANGE_MAX: isize = 50;
@@ -309,7 +307,7 @@ fn write_file(filename: &PathBuf, body: &mut Body) -> Result<bool> {
 fn remove_file(filename: &PathBuf) -> Result<bool> {
     info!("File removed from the Depot from {}",
           filename.to_string_lossy());
-    try!{fs::remove_file(filename)};
+    try!(fs::remove_file(filename));
     Ok(true)
 }
 
@@ -520,7 +518,7 @@ fn upload_package(req: &mut Request) -> IronResult<Response> {
         Ok(target) => target,
         Err(e) => {
             info!("Could not read the target for {:#?}: {:#?}", archive, e);
-            remove_file(&archive.path);
+            remove_file(&archive.path).unwrap();
             return Ok(Response::with(status::UnprocessableEntity));
         }
     };
@@ -528,7 +526,7 @@ fn upload_package(req: &mut Request) -> IronResult<Response> {
     if depot.config.supported_target != target_from_artifact {
         debug!("Unsupported package platform or architecture {}.",
                target_from_artifact);
-        remove_file(&archive.path);
+        remove_file(&archive.path).unwrap();
         return Ok(Response::with(status::NotImplemented));
     };
 

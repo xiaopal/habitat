@@ -6,6 +6,8 @@
 
 use std::result;
 
+use protobuf::{self, Message};
+use redis;
 use serde::{Serialize, Serializer};
 
 pub use message::vault::*;
@@ -270,6 +272,22 @@ impl Routable for ProjectGet {
     }
 }
 
+impl Routable for ProjectStateSet {
+    type H = String;
+
+    fn route_key(&self) -> Option<Self::H> {
+        Some(self.get_id().to_string())
+    }
+}
+
+impl Routable for ProjectAssociate {
+    type H = String;
+
+    fn route_key(&self) -> Option<Self::H> {
+        Some(self.get_term().to_string())
+    }
+}
+
 impl Routable for ProjectCreate {
     type H = String;
 
@@ -283,6 +301,22 @@ impl Routable for ProjectDelete {
 
     fn route_key(&self) -> Option<Self::H> {
         Some(self.get_id().to_string())
+    }
+}
+
+impl Routable for ProjectDisassociate {
+    type H = String;
+
+    fn route_key(&self) -> Option<Self::H> {
+        Some(self.get_term().to_string())
+    }
+}
+
+impl Routable for ProjectSearch {
+    type H = String;
+
+    fn route_key(&self) -> Option<Self::H> {
+        Some(self.get_term().to_string())
     }
 }
 
@@ -326,5 +360,24 @@ impl Serialize for VCSGit {
         try!(serializer.serialize_struct_elt(&mut state, "type", "git".to_string()));
         try!(serializer.serialize_struct_elt(&mut state, "url", self.get_url()));
         serializer.serialize_struct_end(state)
+    }
+}
+
+impl redis::FromRedisValue for Project {
+    fn from_redis_value(value: &redis::Value) -> redis::RedisResult<Project> {
+        let bytes = try!(Vec::from_redis_value(value));
+        Ok(protobuf::parse_from_bytes(&bytes).unwrap())
+    }
+}
+
+impl redis::ToRedisArgs for Project {
+    fn to_redis_args(&self) -> Vec<Vec<u8>> {
+        vec![self.write_to_bytes().unwrap()]
+    }
+}
+
+impl<'a> redis::ToRedisArgs for &'a Project {
+    fn to_redis_args(&self) -> Vec<Vec<u8>> {
+        vec![self.write_to_bytes().unwrap()]
     }
 }

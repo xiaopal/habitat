@@ -18,34 +18,38 @@ use error::{Error, Result};
 
 pub struct Plan {
     pub name: String,
+    pub origin: String,
     pub version: String,
 }
 
 impl Plan {
-    pub fn new(name: String, version: String) -> Self {
-        Plan {
-            name: name,
-            version: version,
-        }
-    }
-
     pub fn from_bytes(bytes: &[u8]) -> Result<Self> {
         let mut name: Option<String> = None;
+        let mut origin: Option<String> = None;
         let mut version: Option<String> = None;
         for line in bytes.lines() {
             if let Ok(line) = line {
                 let parts: Vec<&str> = line.splitn(2, "=").collect();
                 match parts[0] {
                     "pkg_name" => name = Some(parts[1].to_string()),
+                    "pkg_origin" => origin = Some(parts[1].to_string()),
                     "pkg_version" => version = Some(parts[1].to_string()),
                     _ => (),
                 }
             }
         }
-        if name.is_none() || version.is_none() {
+        if name.is_none() || origin.is_none() || version.is_none() {
             return Err(Error::PlanMalformed);
         }
-        let plan = Plan::new(name.unwrap(), version.unwrap());
+        let plan = Plan {
+            name: name.unwrap(),
+            origin: origin.unwrap(),
+            version: version.unwrap(),
+        };
         Ok(plan)
+    }
+
+    pub fn project_id(&self) -> String {
+        format!("{}/{}", self.origin, self.name)
     }
 }

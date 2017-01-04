@@ -3,7 +3,7 @@ name = "habitat_builder_router"
 version = "0.0.0"
 authors = ["Adam Jacob <adam@chef.io>", "Jamie Winsor <reset@chef.io>", "Fletcher Nichol <fnichol@chef.io>", "Joshua Timberman <joshua@chef.io>", "Dave Parfitt <dparfitt@chef.io>"]
 description = "Habitat-Builder Database Access Library"
-build = "../bldr-build.rs"
+build = "build.rs"
 workspace = "../../"
 
 [[bin]]
@@ -15,6 +15,7 @@ env_logger = "*"
 log = "*"
 protobuf = "*"
 rand = "*"
+serde = "*"
 toml = { version = "*", features = ["serde"], default-features = false }
 
 [dependencies.clap]
@@ -36,3 +37,6 @@ path = "../core"
 
 [dependencies.habitat_net]
 path = "../net"
+
+[build-dependencies]
+serde_codegen = "*"

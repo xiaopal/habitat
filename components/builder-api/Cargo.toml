@@ -41,6 +41,9 @@ branch = "iron-0.5"
 git = "https://github.com/erickt/rust-zmq"
 branch = "release/v0.8"
 
+[dependencies.builder_core]
+path = "../builder-core"
+
 [dependencies.habitat_core]
 path = "../core"
 

@@ -61,11 +61,15 @@ use std::path::{Path, PathBuf};
 
 use crypto::sha2::Sha256;
 use crypto::digest::Digest;
-use hab_core::package::{Identifiable, PackageArchive, PackageTarget};
+use hab_core::package::{Identifiable, PackageArchive};
 use hab_net::server::NetIdent;
 use iron::typemap;
 
 use data_store::DataStore;
+
+mod types {
+    include!(concat!(env!("OUT_DIR"), "/serde_types.rs"));
+}
 
 pub struct Depot {
     pub config: Config,

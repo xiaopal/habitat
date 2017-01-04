@@ -21,6 +21,7 @@ extern crate hyper;
 extern crate log;
 extern crate protobuf;
 extern crate redis;
+extern crate serde;
 extern crate time;
 extern crate toml;
 #[macro_use]
@@ -33,3 +34,7 @@ pub mod server;
 
 pub use self::config::Config;
 pub use self::error::{Error, Result};
+
+mod types {
+    include!(concat!(env!("OUT_DIR"), "/serde_types.rs"));
+}

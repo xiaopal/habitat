@@ -33,6 +33,10 @@ time = "*"
 toml = { version = "*", features = ["serde"], default-features = false }
 url = "*"
 
+[dependencies.clap]
+version = "*"
+features = [ "suggestions", "color", "unstable" ]
+
 [dependencies.habitat_core]
 path = "../core"
 
@@ -44,10 +48,6 @@ path = "../builder-depot-client"
 
 [dependencies.habitat_butterfly]
 path = "../butterfly"
-
-[dependencies.clap]
-version = "*"
-features = [ "suggestions", "color", "unstable" ]
 
 [build-dependencies]
 serde_codegen = "*"

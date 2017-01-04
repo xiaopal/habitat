@@ -25,6 +25,7 @@ use zmq;
 #[derive(Debug)]
 pub enum Error {
     BuildFailure(i32),
+    Config(hab_core::config::ConfigError),
     Git(git2::Error),
     HabitatCore(hab_core::Error),
     IO(io::Error),
@@ -43,6 +44,7 @@ impl fmt::Display for Error {
             Error::BuildFailure(ref e) => {
                 format!("Build studio exited with non-zero exit code, {}", e)
             }
+            Error::Config(ref e) => format!("{}", e),
             Error::Git(ref e) => format!("{}", e),
             Error::HabitatCore(ref e) => format!("{}", e),
             Error::IO(ref e) => format!("{}", e),
@@ -64,6 +66,7 @@ impl error::Error for Error {
     fn description(&self) -> &str {
         match *self {
             Error::BuildFailure(_) => "Build studio exited with a non-zero exit code",
+            Error::Config(ref err) => err.description(),
             Error::Git(ref err) => err.description(),
             Error::HabitatCore(ref err) => err.description(),
             Error::IO(ref err) => err.description(),
@@ -79,6 +82,12 @@ impl error::Error for Error {
 impl From<git2::Error> for Error {
     fn from(err: git2::Error) -> Error {
         Error::Git(err)
+    }
+}
+
+impl From<hab_core::config::ConfigError> for Error {
+    fn from(err: hab_core::config::ConfigError) -> Error {
+        Error::Config(err)
     }
 }
 

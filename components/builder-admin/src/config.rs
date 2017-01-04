@@ -21,23 +21,8 @@ use hab_net::config::{GitHubOAuth, RouteAddrs, DEFAULT_GITHUB_URL, DEV_GITHUB_CL
 use hab_core::config::{ConfigFile, ParseInto};
 use toml;
 
+pub use types::Config;
 use error::{Error, Result};
-
-#[derive(Debug)]
-pub struct Config {
-    /// Public listening net address for HTTP requests
-    pub http_addr: SocketAddr,
-    /// List of net addresses for routing servers to connect to
-    pub routers: Vec<SocketAddr>,
-    /// URL to GitHub API
-    pub github_url: String,
-    /// Client identifier used for GitHub API requests
-    pub github_client_id: String,
-    /// Client secret used for GitHub API requests
-    pub github_client_secret: String,
-    /// Path to UI files to host over HTTP. If not set the UI will be disabled.
-    pub ui_root: Option<String>,
-}
 
 impl Config {
     /// Set the port of the http listener

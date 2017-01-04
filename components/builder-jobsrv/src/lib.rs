@@ -21,6 +21,7 @@ extern crate linked_hash_map;
 extern crate log;
 extern crate protobuf;
 extern crate redis;
+extern crate serde;
 extern crate toml;
 extern crate zmq;
 
@@ -31,3 +32,7 @@ pub mod server;
 
 pub use self::config::Config;
 pub use self::error::{Error, Result};
+
+mod types {
+    include!(concat!(env!("OUT_DIR"), "/serde_types.rs"));
+}

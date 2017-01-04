@@ -25,12 +25,15 @@ use zmq;
 
 #[derive(Debug)]
 pub enum Error {
+    BadGitHubCloneURL(String),
     BadPort(String),
+    Config(hab_core::config::ConfigError),
     DataStore(dbcache::Error),
     HabitatCore(hab_core::Error),
     IO(io::Error),
     NetError(hab_net::Error),
     Protobuf(protobuf::ProtobufError),
+    UnknownVCS,
     Zmq(zmq::Error),
 }
 
@@ -39,12 +42,17 @@ pub type Result<T> = result::Result<T, Error>;
 impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let msg = match *self {
+            Error::BadGitHubCloneURL(ref e) => format!("{} is an invalid GitHub clone url.", e),
             Error::BadPort(ref e) => format!("{} is an invalid port. Valid range 1-65535.", e),
+            Error::Config(ref e) => format!("{}", e),
             Error::DataStore(ref e) => format!("DataStore error, {}", e),
             Error::HabitatCore(ref e) => format!("{}", e),
             Error::IO(ref e) => format!("{}", e),
             Error::NetError(ref e) => format!("{}", e),
             Error::Protobuf(ref e) => format!("{}", e),
+            Error::UnknownVCS => {
+                "Unknown VCS type assigned to project. Protocol mismatch?".to_string()
+            }
             Error::Zmq(ref e) => format!("{}", e),
         };
         write!(f, "{}", msg)
@@ -54,12 +62,17 @@ impl fmt::Display for Error {
 impl error::Error for Error {
     fn description(&self) -> &str {
         match *self {
+            Error::BadGitHubCloneURL(_) => "VCS contained a bad GitHub clone url.",
             Error::BadPort(_) => "Received an invalid port or a number outside of the valid range.",
+            Error::Config(ref err) => err.description(),
             Error::DataStore(ref err) => err.description(),
             Error::HabitatCore(ref err) => err.description(),
             Error::IO(ref err) => err.description(),
             Error::NetError(ref err) => err.description(),
             Error::Protobuf(ref err) => err.description(),
+            Error::UnknownVCS => {
+                "A project had an unknown VCS type. This is typically due to a protocol mismatch."
+            }
             Error::Zmq(ref err) => err.description(),
         }
     }
@@ -68,6 +81,12 @@ impl error::Error for Error {
 impl From<hab_core::Error> for Error {
     fn from(err: hab_core::Error) -> Error {
         Error::HabitatCore(err)
+    }
+}
+
+impl From<hab_core::config::ConfigError> for Error {
+    fn from(err: hab_core::config::ConfigError) -> Error {
+        Error::Config(err)
     }
 }
 

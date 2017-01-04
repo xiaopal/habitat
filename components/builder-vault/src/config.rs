@@ -19,28 +19,12 @@ use std::net::{Ipv4Addr, SocketAddr, SocketAddrV4};
 use dbcache::config::DataStoreCfg;
 use hab_core::config::{ConfigFile, ParseInto};
 use hab_net::config::{DispatcherCfg, RouteAddrs, Shards};
-use protocol::sharding::{ShardId, SHARD_COUNT};
+use protocol::sharding::SHARD_COUNT;
 use redis;
 use toml;
 
+pub use types::Config;
 use error::{Error, Result};
-
-pub struct Config {
-    /// List of net addresses for routing servers to connect to.
-    pub routers: Vec<SocketAddr>,
-    /// Net address to the persistent datastore.
-    pub datastore_addr: SocketAddr,
-    /// Connection retry timeout in milliseconds for datastore.
-    pub datastore_retry_ms: u64,
-    /// Number of database connections to start in pool.
-    pub pool_size: u32,
-    /// Router's heartbeat port to connect to.
-    pub heartbeat_port: u16,
-    /// List of shard identifiers serviced by the running service.
-    pub shards: Vec<ShardId>,
-    /// Number of threads to process queued messages.
-    pub worker_threads: usize,
-}
 
 impl Default for Config {
     fn default() -> Self {

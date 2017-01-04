@@ -13,6 +13,7 @@
 // limitations under the License.
 
 use dbcache::{self, BasicSet, IndexSet, InstaSet};
+use hab_net::routing::Broker;
 use hab_net::server::Envelope;
 use protobuf::RepeatedField;
 use protocol::net::{self, NetOk, ErrCode};
@@ -20,7 +21,8 @@ use protocol::vault as proto;
 use zmq;
 
 use super::ServerState;
-use error::Result;
+use error::{Error, Result};
+use project::RepoIdent;
 
 pub fn account_invitation_list(req: &mut Envelope,
                                sock: &mut zmq::Socket,
@@ -305,16 +307,63 @@ pub fn origin_secret_key_get(req: &mut Envelope,
     Ok(())
 }
 
+pub fn project_associate(req: &mut Envelope,
+                         sock: &mut zmq::Socket,
+                         state: &mut ServerState)
+                         -> Result<()> {
+    let msg: proto::ProjectAssociate = try!(req.parse_msg());
+    match msg.get_key() {
+        proto::ProjectSearchKey::GitHubFullName => {
+            try!(state.datastore.projects.github_repo.insert(msg.get_term(), msg.get_project()));
+        }
+    }
+    try!(req.reply_complete(sock, &NetOk::new()));
+    Ok(())
+}
+
 pub fn project_create(req: &mut Envelope,
                       sock: &mut zmq::Socket,
                       state: &mut ServerState)
                       -> Result<()> {
     let mut project = try!(req.parse_msg::<proto::ProjectCreate>()).take_project();
-    match state.datastore.projects.write(&mut project) {
-        Ok(true) => try!(req.reply_complete(sock, &project)),
-        Ok(false) => {
-            let err = net::err(ErrCode::ENTITY_CONFLICT, "vt:project-create:0");
+    let mut associate = proto::ProjectAssociate::new();
+    associate.set_key(proto::ProjectSearchKey::GitHubFullName);
+    match project.repo_ident() {
+        Ok(ident) => associate.set_term(ident),
+        Err(Error::UnknownVCS) => {
+            let err = net::err(ErrCode::PROTOCOL_MISMATCH, "vt:project-create:2");
             try!(req.reply_complete(sock, &err));
+            return Ok(());
+        }
+        Err(Error::BadGitHubCloneURL(_)) => {
+            let err = net::err(ErrCode::BUG, "vt:project-create:3");
+            try!(req.reply_complete(sock, &err));
+            return Ok(());
+        }
+        Err(err) => {
+            error!("project-create unhandled error, {:?}", err);
+            let err = net::err(ErrCode::BUG, "vt:project-create:4");
+            try!(req.reply_complete(sock, &err));
+            return Ok(());
+        }
+    }
+    associate.set_project(project.clone()); // JW TODO: avoid clone
+    let mut conn = try!(Broker::connect());
+    match state.datastore.projects.write(&mut project) {
+        Ok(true) => {
+            match conn.route::<proto::ProjectAssociate, NetOk>(&associate) {
+                Ok(_) => try!(req.reply_complete(sock, &project)),
+                Err(err) => try!(req.reply_complete(sock, &err)),
+            }
+        }
+        Ok(false) => {
+            match conn.route::<proto::ProjectAssociate, NetOk>(&associate) {
+                Ok(_) => {
+                    let err = net::err(ErrCode::ENTITY_CONFLICT, "vt:project-create:0");
+                    try!(req.reply_complete(sock, &err));
+                }
+                Err(err) => try!(req.reply_complete(sock, &err)),
+            }
         }
         Err(err) => {
             error!("ProjectCreate, err={:?}", err);
@@ -330,7 +379,59 @@ pub fn project_delete(req: &mut Envelope,
                       state: &mut ServerState)
                       -> Result<()> {
     let mut msg: proto::ProjectDelete = try!(req.parse_msg());
-    try!(state.datastore.projects.delete(&msg.take_id()));
+    let mut disassociate = proto::ProjectDisassociate::new();
+    let mut project = match state.datastore.projects.find(&msg.take_id()) {
+        Ok(project) => project,
+        Err(dbcache::Error::EntityNotFound) => {
+            let err = net::err(ErrCode::ENTITY_NOT_FOUND, "vt:project-delete:2");
+            try!(req.reply_complete(sock, &err));
+            return Ok(());
+        }
+        Err(err) => {
+            error!("project-delete, err={:?}", err);
+            let err = net::err(ErrCode::DATA_STORE, "vt:project-delete:3");
+            try!(req.reply_complete(sock, &err));
+            return Ok(());
+        }
+    };
+    disassociate.set_key(proto::ProjectSearchKey::GitHubFullName);
+    match project.repo_ident() {
+        Ok(ident) => disassociate.set_term(ident),
+        Err(Error::UnknownVCS) => {
+            let err = net::err(ErrCode::PROTOCOL_MISMATCH, "vt:project-delete:0");
+            try!(req.reply_complete(sock, &err));
+            return Ok(());
+        }
+        Err(Error::BadGitHubCloneURL(_)) => {
+            let err = net::err(ErrCode::BUG, "vt:project-delete:1");
+            try!(req.reply_complete(sock, &err));
+            return Ok(());
+        }
+        Err(err) => {
+            error!("project-delete unhandled error, {:?}", err);
+            let err = net::err(ErrCode::BUG, "vt:project-delete:3");
+            try!(req.reply_complete(sock, &err));
+            return Ok(());
+        }
+    }
+    disassociate.set_project_id(project.take_id());
+    let mut conn = try!(Broker::connect());
+    match conn.route::<proto::ProjectDisassociate, NetOk>(&disassociate) {
+        Ok(_) => {
+            try!(state.datastore.projects.delete(&msg.take_id()));
+            try!(req.reply_complete(sock, &NetOk::new()));
+        }
+        Err(err) => try!(req.reply_complete(sock, &err)),
+    }
+    Ok(())
+}
+
+pub fn project_disassociate(req: &mut Envelope,
+                            sock: &mut zmq::Socket,
+                            state: &mut ServerState)
+                            -> Result<()> {
+    let msg: proto::ProjectDisassociate = try!(req.parse_msg());
+    try!(state.datastore.projects.github_repo.remove(msg.get_term(), msg.get_project_id()));
     try!(req.reply_complete(sock, &NetOk::new()));
     Ok(())
 }
@@ -360,8 +461,36 @@ pub fn project_update(req: &mut Envelope,
                       state: &mut ServerState)
                       -> Result<()> {
     let msg: proto::ProjectUpdate = try!(req.parse_msg());
+    let mut associate = proto::ProjectAssociate::new();
+    associate.set_key(proto::ProjectSearchKey::GitHubFullName);
+    match msg.get_project().repo_ident() {
+        Ok(ident) => associate.set_term(ident),
+        Err(Error::UnknownVCS) => {
+            let err = net::err(ErrCode::PROTOCOL_MISMATCH, "vt:project-update:2");
+            try!(req.reply_complete(sock, &err));
+            return Ok(());
+        }
+        Err(Error::BadGitHubCloneURL(_)) => {
+            let err = net::err(ErrCode::BUG, "vt:project-update:3");
+            try!(req.reply_complete(sock, &err));
+            return Ok(());
+        }
+        Err(err) => {
+            error!("project-update unhandled error, {:?}", err);
+            let err = net::err(ErrCode::BUG, "vt:project-update:4");
+            try!(req.reply_complete(sock, &err));
+            return Ok(());
+        }
+    }
+    associate.set_project(msg.get_project().clone()); // JW TODO: avoid clone
+    let mut conn = try!(Broker::connect());
     match state.datastore.projects.update(&msg.get_project()) {
-        Ok(()) => try!(req.reply_complete(sock, &NetOk::new())),
+        Ok(()) => {
+            match conn.route::<proto::ProjectAssociate, NetOk>(&associate) {
+                Ok(_) => try!(req.reply_complete(sock, &NetOk::new())),
+                Err(err) => try!(req.reply_complete(sock, &err)),
+            }
+        }
         Err(dbcache::Error::EntityNotFound) => {
             let err = net::err(ErrCode::ENTITY_NOT_FOUND, "vt:project-update:0");
             try!(req.reply_complete(sock, &err));
@@ -372,5 +501,42 @@ pub fn project_update(req: &mut Envelope,
             try!(req.reply_complete(sock, &err));
         }
     }
+    Ok(())
+}
+
+pub fn project_search(req: &mut Envelope,
+                      sock: &mut zmq::Socket,
+                      state: &mut ServerState)
+                      -> Result<()> {
+    let msg: proto::ProjectSearch = try!(req.parse_msg());
+    match state.datastore.projects.github_repo.find(&msg.get_term().to_string()) {
+        Ok(projects) => {
+            let mut set = RepeatedField::new();
+            for project in projects {
+                set.push(project);
+            }
+            let mut rep = proto::ProjectSet::new();
+            rep.set_projects(set);
+            try!(req.reply_complete(sock, &rep));
+        }
+        Err(dbcache::Error::EntityNotFound) => {
+            let err = net::err(ErrCode::ENTITY_NOT_FOUND, "vt:project-search:0");
+            try!(req.reply_complete(sock, &err));
+        }
+        Err(err) => {
+            error!("ProjectSearch, err={:?}", err);
+            let err = net::err(ErrCode::DATA_STORE, "vt:project-search:1");
+            try!(req.reply_complete(sock, &err));
+        }
+    }
+    Ok(())
+}
+
+pub fn project_state_set(req: &mut Envelope,
+                         sock: &mut zmq::Socket,
+                         state: &mut ServerState)
+                         -> Result<()> {
+    // JW TODO: Actually set state
+    try!(req.reply_complete(sock, &NetOk::new()));
     Ok(())
 }

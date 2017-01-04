@@ -3,7 +3,7 @@ name = "habitat_builder_vault"
 version = "0.0.0"
 authors = ["Adam Jacob <adam@chef.io>", "Jamie Winsor <reset@chef.io>", "Fletcher Nichol <fnichol@chef.io>", "Joshua Timberman <joshua@chef.io>", "Dave Parfitt <dparfitt@chef.io>"]
 description = "Habitat-Builder Vault Server"
-build = "../bldr-build.rs"
+build = "build.rs"
 workspace = "../../"
 
 [[bin]]
@@ -12,8 +12,11 @@ doc = false
 
 [dependencies]
 env_logger = "*"
+lazy_static = "*"
 log = "*"
 protobuf = "*"
+regex = "*"
+serde = "*"
 toml = { version = "*", features = ["serde"], default-features = false }
 
 [dependencies.clap]
@@ -39,6 +42,9 @@ branch = "habitat"
 [dependencies.zmq]
 git = "https://github.com/erickt/rust-zmq"
 branch = "release/v0.8"
+
+[build-dependencies]
+serde_codegen = "*"
 
 [features]
 functional = []

@@ -20,6 +20,7 @@ extern crate habitat_net as hab_net;
 extern crate log;
 extern crate protobuf;
 extern crate rand;
+extern crate serde;
 extern crate toml;
 #[macro_use]
 extern crate zmq;
@@ -30,3 +31,7 @@ pub mod server;
 
 pub use self::config::Config;
 pub use self::error::{Error, Result};
+
+mod types {
+    include!(concat!(env!("OUT_DIR"), "/serde_types.rs"));
+}

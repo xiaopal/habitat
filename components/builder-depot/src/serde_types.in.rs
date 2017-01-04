@@ -12,18 +12,45 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// JW TODO: After updating to Rust 1.15, move the types contained in this module back into
-// `server.rs`
+use std::net::SocketAddr;
 
-#[derive(Clone, Serialize, Deserialize)]
-pub struct OriginCreateReq {
-    pub name: String,
+use hab_core::package::PackageTarget;
+
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
+pub struct Config {
+    pub path: String,
+    pub listen_addr: SocketAddr,
+    pub datastore_addr: SocketAddr,
+    /// List of net addresses for routing servers to connect to
+    pub routers: Vec<SocketAddr>,
+    /// URL to GitHub API
+    pub github_url: String,
+    /// Client identifier used for GitHub API requests
+    pub github_client_id: String,
+    /// Client secret used for GitHub API requests
+    pub github_client_secret: String,
+    /// allows you to upload packages and public keys without auth
+    pub insecure: bool,
+    /// Whether to log events for funnel metrics
+    pub events_enabled: bool,
+    /// Supported targets - comma separated
+    pub supported_target: PackageTarget,
 }
 
-#[derive(Serialize)]
-pub struct PackageResults<'a, T: 'a> {
-    pub range_start: isize,
-    pub range_end: isize,
-    pub total_count: isize,
-    pub package_list: &'a Vec<T>,
+pub mod http {
+    // JW TODO: After updating to Rust 1.15, move the types contained in this module back into
+    // `server.rs`
+
+    #[derive(Clone, Serialize, Deserialize)]
+    pub struct OriginCreateReq {
+        pub name: String,
+    }
+
+    #[derive(Serialize)]
+    pub struct PackageResults<'a, T: 'a> {
+        pub range_start: isize,
+        pub range_end: isize,
+        pub total_count: isize,
+        pub package_list: &'a Vec<T>,
+    }
 }

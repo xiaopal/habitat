@@ -16,6 +16,7 @@
 
 use bodyparser;
 use hab_net::http::controller::*;
+use hab_net::privilege;
 use hab_net::routing::Broker;
 use iron::prelude::*;
 use iron::status;
@@ -25,16 +26,7 @@ use protocol::sessionsrv::*;
 use router::Router;
 use serde_json;
 
-include!(concat!(env!("OUT_DIR"), "/serde_types.rs"));
-
-impl Default for FeatureFlagList {
-    fn default() -> Self {
-        let mut list = vec![];
-        list.push(FeatureFlag::new("Admin", privilege::ADMIN.bits()));
-        list.push(FeatureFlag::new("Builder", privilege::BUILDER.bits()));
-        FeatureFlagList(list)
-    }
-}
+pub use types::http::*;
 
 impl FeatureFlag {
     pub fn new(name: &'static str, id: u32) -> Self {
@@ -42,6 +34,15 @@ impl FeatureFlag {
             name: name.to_string(),
             id: id,
         }
+    }
+}
+
+impl Default for FeatureFlagList {
+    fn default() -> Self {
+        let mut list = vec![];
+        list.push(FeatureFlag::new("Admin", privilege::ADMIN.bits()));
+        list.push(FeatureFlag::new("Builder", privilege::BUILDER.bits()));
+        FeatureFlagList(list)
     }
 }
 

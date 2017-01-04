@@ -34,6 +34,7 @@ pub use error::{Error, Result};
 
 use std::fs::{self, File};
 use std::io::{self, Read, Write};
+use std::ops::{Deref, DerefMut};
 use std::path::{Path, PathBuf};
 
 use broadcast::BroadcastWriter;
@@ -409,6 +410,20 @@ impl Client {
                &dst_file_path.display());
         try!(fs::rename(&tmp_file_path, &dst_file_path));
         Ok(dst_file_path)
+    }
+}
+
+impl Deref for Client {
+    type Target = ApiClient;
+
+    fn deref(&self) -> &Self::Target {
+        &self.inner
+    }
+}
+
+impl DerefMut for Client {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.inner
     }
 }
 

@@ -20,16 +20,8 @@ use hab_core;
 use hab_core::config::{ConfigFile, ParseInto};
 use toml;
 
+pub use types::Config;
 use error::{Error, Result};
-
-pub struct Config {
-    /// Token for authenticating with the public builder-api
-    pub auth_token: String,
-    /// Filepath where persistent application data is stored
-    pub data_path: String,
-    /// List of Job Servers to connect to
-    pub job_servers: Vec<BTreeMap<String, String>>,
-}
 
 impl Config {
     pub fn jobsrv_addrs(&self) -> Vec<(String, String)> {
@@ -53,7 +45,7 @@ impl Default for Config {
         jobsrv.insert("port".to_string(), "5566".to_string());
         jobsrv.insert("heartbeat".to_string(), "5567".to_string());
         Config {
-            auth_token: "".to_string(),
+            auth_token: String::default(),
             data_path: hab_core::fs::svc_data_path("hab-builder-worker")
                 .to_string_lossy()
                 .into_owned(),

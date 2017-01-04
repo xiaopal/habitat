@@ -12,29 +12,46 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use std::net::SocketAddr;
 
-// JW TODO: After updating to Rust 1.15, move the types contained in this module back into
-// `http/handlers.rs`
-
-use hab_net::privilege;
-
-#[derive(Clone, Serialize, Deserialize)]
-pub struct FeatureGrant {
-    team_id: u64,
+#[derive(Debug, Deserialize, Serialize)]
+pub struct Config {
+    /// Public listening net address for HTTP requests
+    pub http_addr: SocketAddr,
+    /// List of net addresses for routing servers to connect to
+    pub routers: Vec<SocketAddr>,
+    /// URL to GitHub API
+    pub github_url: String,
+    /// Client identifier used for GitHub API requests
+    pub github_client_id: String,
+    /// Client secret used for GitHub API requests
+    pub github_client_secret: String,
+    /// Path to UI files to host over HTTP. If not set the UI will be disabled.
+    pub ui_root: Option<String>,
 }
 
-#[derive(Clone, Serialize, Deserialize)]
-pub struct FeatureFlagList(Vec<FeatureFlag>);
+pub mod http {
+    // JW TODO: After updating to Rust 1.15, move the types contained in this module back into
+    // `http/handlers.rs`
 
-#[derive(Clone, Serialize, Deserialize)]
-pub struct FeatureFlag {
-    name: String,
-    id: u32,
-}
+    #[derive(Clone, Serialize, Deserialize)]
+    pub struct FeatureGrant {
+        pub team_id: u64,
+    }
 
-#[derive(Clone, Serialize, Deserialize)]
-pub struct SearchTerm {
-    pub attr: String,
-    pub entity: String,
-    pub value: String,
+    #[derive(Clone, Serialize, Deserialize)]
+    pub struct FeatureFlagList(pub Vec<FeatureFlag>);
+
+    #[derive(Clone, Serialize, Deserialize)]
+    pub struct FeatureFlag {
+        pub name: String,
+        pub id: u32,
+    }
+
+    #[derive(Clone, Serialize, Deserialize)]
+    pub struct SearchTerm {
+        pub attr: String,
+        pub entity: String,
+        pub value: String,
+    }
 }

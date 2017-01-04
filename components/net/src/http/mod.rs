@@ -29,6 +29,7 @@ pub fn net_err_to_http(err: ErrCode) -> Status {
         ErrCode::ENTITY_NOT_FOUND => Status::NotFound,
         ErrCode::NO_SHARD => Status::ServiceUnavailable,
         ErrCode::ACCESS_DENIED => Status::Unauthorized,
+        ErrCode::PROTOCOL_MISMATCH => Status::ServiceUnavailable,
         ErrCode::SESSION_EXPIRED => Status::Unauthorized,
         ErrCode::ENTITY_CONFLICT => Status::Conflict,
         ErrCode::ZMQ => Status::ServiceUnavailable,

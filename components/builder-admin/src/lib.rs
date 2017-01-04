@@ -42,3 +42,7 @@ pub mod server;
 
 pub use self::config::Config;
 pub use self::error::{Error, Result};
+
+mod types {
+    include!(concat!(env!("OUT_DIR"), "/serde_types.rs"));
+}

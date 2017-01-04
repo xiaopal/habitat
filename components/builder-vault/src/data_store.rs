@@ -429,13 +429,64 @@ impl InstaSet for OriginInvitesTable {
     }
 }
 
+pub struct GitHubRepo2ProjectIdx {
+    pool: Arc<ConnectionPool>,
+}
+
+impl GitHubRepo2ProjectIdx {
+    pub fn new(pool: Arc<ConnectionPool>) -> Self {
+        GitHubRepo2ProjectIdx { pool: pool }
+    }
+
+    // Return a list of Projects contained in the given GitHub repository
+    pub fn find(&self, id: &str) -> dbcache::Result<Vec<vault::Project>> {
+        let values = self.pool().get()?.hvals(Self::key(id))?;
+        Ok(values)
+    }
+
+    /// Write a new index entry to the data set.
+    pub fn insert(&self, key: &str, value: &vault::Project) -> dbcache::Result<bool> {
+        match self.pool().get()?.hset(Self::key(key), value.get_id(), value)? {
+            1 => Ok(true),
+            0 => Ok(false),
+            code => unreachable!("received unexpected return code from redis-hset: {}", code),
+        }
+    }
+
+    pub fn remove(&self, key: &str, field: &str) -> dbcache::Result<bool> {
+        match self.pool().get()?.hdel(Self::key(key), field)? {
+            1 => Ok(true),
+            0 => Ok(false),
+            code => unreachable!("received unexpected return code from redis-hdel: {}", code),
+        }
+    }
+
+    fn key(id: &str) -> String {
+        format!("{}:{}", Self::prefix(), id)
+    }
+}
+
+impl Bucket for GitHubRepo2ProjectIdx {
+    fn pool(&self) -> &ConnectionPool {
+        &self.pool
+    }
+
+    fn prefix() -> &'static str {
+        "githubrepo2project"
+    }
+}
+
 pub struct ProjectTable {
     pool: Arc<ConnectionPool>,
+    pub github_repo: GitHubRepo2ProjectIdx,
 }
 
 impl ProjectTable {
     pub fn new(pool: Arc<ConnectionPool>) -> Self {
-        ProjectTable { pool: pool }
+        ProjectTable {
+            github_repo: GitHubRepo2ProjectIdx::new(pool.clone()),
+            pool: pool,
+        }
     }
 }
 

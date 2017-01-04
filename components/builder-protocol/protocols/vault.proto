@@ -1,3 +1,5 @@
+syntax = "proto2";
+
 package vault;
 
 message Origin {
@@ -124,13 +126,27 @@ message OriginSecretKeyGet {
   required string origin = 2;
 }
 
+enum ProjectState {
+  Ok = 0;
+  BadPlan = 1;
+  OriginNameMismatch = 2;
+  MissingPlan = 3;
+  BadConfig = 4;
+}
+
 message Project {
   required string id = 1;
   required uint64 owner_id = 2;
   required string plan_path = 3;
+  optional ProjectState state = 5;
   oneof vcs {
     VCSGit git = 4;
   }
+}
+
+message ProjectStateSet {
+  required string id = 1;
+  required ProjectState state = 2;
 }
 
 message ProjectUpdate {
@@ -149,6 +165,31 @@ message ProjectDelete {
 
 message ProjectGet {
   required string id = 1;
+}
+
+message ProjectAssociate {
+  required ProjectSearchKey key = 1;
+  required string term = 2;
+  required Project project = 3;
+}
+
+message ProjectDisassociate {
+  required ProjectSearchKey key = 1;
+  required string term = 2;
+  required string project_id = 3;
+}
+
+message ProjectSearch {
+  required ProjectSearchKey key = 1;
+  required string term = 2;
+}
+
+enum ProjectSearchKey {
+  GitHubFullName = 0;
+}
+
+message ProjectSet {
+  repeated Project projects = 1;
 }
 
 message VCSGit {

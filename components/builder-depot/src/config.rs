@@ -20,6 +20,7 @@ use hab_core::package::PackageTarget;
 use redis;
 use toml;
 
+pub use types::Config;
 use error::{Error, Result};
 
 /// URL to GitHub API endpoint
@@ -31,27 +32,6 @@ const DEV_GITHUB_CLIENT_ID: &'static str = "0c2f738a7d0bd300de10";
 // Default Client Secret for development purposes only. See the `DEV_GITHUB_CLIENT_ID` for
 // additional comments.
 const DEV_GITHUB_CLIENT_SECRET: &'static str = "438223113eeb6e7edf2d2f91a232b72de72b9bdf";
-
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct Config {
-    pub path: String,
-    pub listen_addr: SocketAddr,
-    pub datastore_addr: SocketAddr,
-    /// List of net addresses for routing servers to connect to
-    pub routers: Vec<SocketAddr>,
-    /// URL to GitHub API
-    pub github_url: String,
-    /// Client identifier used for GitHub API requests
-    pub github_client_id: String,
-    /// Client secret used for GitHub API requests
-    pub github_client_secret: String,
-    /// allows you to upload packages and public keys without auth
-    pub insecure: bool,
-    /// Whether to log events for funnel metrics
-    pub events_enabled: bool,
-    /// Supported targets - comma separated
-    pub supported_target: PackageTarget,
-}
 
 impl ConfigFile for Config {
     type Error = Error;

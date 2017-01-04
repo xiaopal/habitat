@@ -43,6 +43,7 @@ impl error::Error for NetError {
             ErrCode::BAD_REMOTE_REPLY => "Remote server returned a bad response.",
             ErrCode::ENTITY_NOT_FOUND => "Entity not found in datastore.",
             ErrCode::NO_SHARD => "Shard not available.",
+            ErrCode::PROTOCOL_MISMATCH => "Server has an incompatible protocol.",
             ErrCode::ACCESS_DENIED => "Operation not allowed by authenticated.",
             ErrCode::SESSION_EXPIRED => "Session expired, user should re-authenticate.",
             ErrCode::ENTITY_CONFLICT => "Entity already exists in datastore.",

@@ -45,7 +45,7 @@ header! { (ProxyAuthorization, "Proxy-Authorization") => [String] }
 #[derive(Debug)]
 pub struct ApiClient {
     /// The base URL for the client.
-    endpoint: Url,
+    pub endpoint: Url,
     /// An instance of a `hyper::Client` which is configured with an SSL context and optionally
     /// using an HTTP proxy.
     inner: HyperClient,

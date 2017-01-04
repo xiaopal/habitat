@@ -14,11 +14,13 @@
 
 extern crate base64;
 extern crate bodyparser;
+extern crate builder_core;
 extern crate habitat_builder_protocol as protocol;
 #[macro_use]
 extern crate habitat_core as hab_core;
 extern crate habitat_depot as depot;
 extern crate habitat_net as hab_net;
+#[macro_use]
 extern crate hyper;
 extern crate iron;
 #[macro_use]
@@ -44,3 +46,7 @@ pub mod server;
 
 pub use self::config::Config;
 pub use self::error::{Error, Result};
+
+mod types {
+    include!(concat!(env!("OUT_DIR"), "/serde_types.rs"));
+}

@@ -27,6 +27,7 @@ use zmq;
 #[derive(Debug)]
 pub enum Error {
     BadPort(String),
+    Config(hab_core::config::ConfigError),
     Depot(depot::Error),
     HabitatCore(hab_core::Error),
     HyperError(hyper::error::Error),
@@ -35,6 +36,7 @@ pub enum Error {
     NetError(hab_net::Error),
     Protobuf(protobuf::ProtobufError),
     Zmq(zmq::Error),
+    UnknownGitHubEvent(String),
 }
 
 pub type Result<T> = result::Result<T, Error>;
@@ -43,6 +45,7 @@ impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let msg = match *self {
             Error::BadPort(ref e) => format!("{} is an invalid port. Valid range 1-65535.", e),
+            Error::Config(ref e) => format!("{}", e),
             Error::Depot(ref e) => format!("{}", e),
             Error::HabitatCore(ref e) => format!("{}", e),
             Error::HyperError(ref e) => format!("{}", e),
@@ -51,6 +54,9 @@ impl fmt::Display for Error {
             Error::NetError(ref e) => format!("{}", e),
             Error::Protobuf(ref e) => format!("{}", e),
             Error::Zmq(ref e) => format!("{}", e),
+            Error::UnknownGitHubEvent(ref e) => {
+                format!("Unknown or unsupported GitHub event, {}", e)
+            }
         };
         write!(f, "{}", msg)
     }
@@ -60,6 +66,7 @@ impl error::Error for Error {
     fn description(&self) -> &str {
         match *self {
             Error::BadPort(_) => "Received an invalid port or a number outside of the valid range.",
+            Error::Config(ref err) => err.description(),
             Error::Depot(ref err) => err.description(),
             Error::HabitatCore(ref err) => err.description(),
             Error::HyperError(ref err) => err.description(),
@@ -68,6 +75,9 @@ impl error::Error for Error {
             Error::NetError(ref err) => err.description(),
             Error::Protobuf(ref err) => err.description(),
             Error::Zmq(ref err) => err.description(),
+            Error::UnknownGitHubEvent(_) => {
+                "Unknown or unsupported GitHub event received in request"
+            }
         }
     }
 }
@@ -75,6 +85,12 @@ impl error::Error for Error {
 impl From<hab_core::Error> for Error {
     fn from(err: hab_core::Error) -> Error {
         Error::HabitatCore(err)
+    }
+}
+
+impl From<hab_core::config::ConfigError> for Error {
+    fn from(err: hab_core::config::ConfigError) -> Error {
+        Error::Config(err)
     }
 }
 

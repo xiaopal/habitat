@@ -19,15 +19,8 @@ use std::net::{Ipv4Addr, SocketAddr, SocketAddrV4};
 use hab_core::config::{ConfigFile, ParseInto};
 use toml;
 
+pub use types::Config;
 use error::{Error, Result};
-
-#[derive(Debug)]
-pub struct Config {
-    /// Listening net address for client connections
-    pub listen_addr: SocketAddr,
-    /// Port for receiving service heartbeats
-    pub heartbeat_port: u16,
-}
 
 impl Config {
     pub fn fe_addr(&self) -> String {

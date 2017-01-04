@@ -20,37 +20,12 @@ use hab_core::config::{ConfigFile, ParseInto};
 use hab_net;
 use hab_net::config::{DispatcherCfg, GitHubOAuth, RouteAddrs, Shards, DEFAULT_GITHUB_URL,
                       DEV_GITHUB_CLIENT_ID, DEV_GITHUB_CLIENT_SECRET};
-use protocol::sharding::{ShardId, SHARD_COUNT};
+use protocol::sharding::SHARD_COUNT;
 use redis;
 use toml;
 
+pub use types::Config;
 use error::{Error, Result};
-
-pub struct Config {
-    /// List of net addresses for routing servers to connect to.
-    pub routers: Vec<SocketAddr>,
-    /// Net address to the persistent datastore.
-    pub datastore_addr: SocketAddr,
-    /// Connection retry timeout in milliseconds for datastore.
-    pub datastore_retry_ms: u64,
-    /// Number of database connections to start in pool.
-    pub pool_size: u32,
-    /// Router's heartbeat port to connect to.
-    pub heartbeat_port: u16,
-    /// List of shard identifiers serviced by the running service.
-    pub shards: Vec<ShardId>,
-    /// Number of threads to process queued messages.
-    pub worker_threads: usize,
-    /// URL to GitHub API
-    pub github_url: String,
-    /// Client identifier used for GitHub API requests
-    pub github_client_id: String,
-    /// Client secret used for GitHub API requests
-    pub github_client_secret: String,
-    /// A GitHub Team identifier for which members will automatically have administration
-    /// privileges assigned to their session
-    pub github_admin_team: u64,
-}
 
 impl Default for Config {
     fn default() -> Self {

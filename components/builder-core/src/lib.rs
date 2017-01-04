@@ -12,12 +12,18 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-
-#[macro_use]
-extern crate log;
-extern crate statsd;
-
 #[macro_use]
 extern crate habitat_core as hab_core;
+#[macro_use]
+extern crate log;
+extern crate serde;
+extern crate statsd;
+extern crate toml;
 
+pub mod build_config;
+pub mod channel;
 pub mod metrics;
+
+mod types {
+    include!(concat!(env!("OUT_DIR"), "/serde_types.rs"));
+}

@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+extern crate builder_core;
 extern crate habitat_builder_protocol as protocol;
 extern crate habitat_depot_client as depot_client;
 extern crate habitat_core as hab_core;
@@ -22,6 +23,7 @@ extern crate log;
 #[macro_use]
 extern crate lazy_static;
 extern crate protobuf;
+extern crate serde;
 extern crate toml;
 extern crate zmq;
 
@@ -37,3 +39,7 @@ pub use self::error::{Error, Result};
 
 pub const PRODUCT: &'static str = "builder-worker";
 pub const VERSION: &'static str = include_str!(concat!(env!("OUT_DIR"), "/VERSION"));
+
+mod types {
+    include!(concat!(env!("OUT_DIR"), "/serde_types.rs"));
+}

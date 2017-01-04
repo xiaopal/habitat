@@ -18,6 +18,7 @@ use std::fmt;
 use std::io;
 use std::result;
 
+use base64;
 use hyper;
 use protobuf;
 use protocol::net;
@@ -30,6 +31,7 @@ use oauth;
 pub enum Error {
     Auth(oauth::github::AuthErr),
     GitHubAPI(hyper::status::StatusCode, HashMap<String, String>),
+    GitHubContentDecode(base64::Base64Error),
     IO(io::Error),
     Json(serde_json::Error),
     MaxHops,
@@ -49,6 +51,7 @@ impl fmt::Display for Error {
             Error::Auth(ref e) => format!("GitHub Authentication error, {}", e),
             Error::GitHubAPI(ref c, ref m) => format!("[{}] {:?}", c, m),
             Error::HTTP(ref e) => format!("{}", e),
+            Error::GitHubContentDecode(ref e) => format!("Unable to decode content, {}", e),
             Error::IO(ref e) => format!("{}", e),
             Error::Json(ref e) => format!("{}", e),
             Error::MaxHops => format!("Received a message containing too many network hops"),
@@ -69,6 +72,7 @@ impl error::Error for Error {
         match *self {
             Error::Auth(_) => "GitHub authorization error.",
             Error::GitHubAPI(_, _) => "GitHub API error.",
+            Error::GitHubContentDecode(_) => "Unable to base64 decode content body",
             Error::IO(ref err) => err.description(),
             Error::HTTP(_) => "Non-200 HTTP response.",
             Error::Json(ref err) => err.description(),

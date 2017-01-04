@@ -6,6 +6,7 @@ workspace = "../../"
 build = "build.rs"
 
 [dependencies]
+base64 = "*"
 bitflags = "*"
 fnv = "*"
 hyper = "*"

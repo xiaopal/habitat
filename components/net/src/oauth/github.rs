@@ -19,6 +19,7 @@ use std::io::Read;
 use std::result::Result as StdResult;
 use std::time::Duration;
 
+use base64;
 use hyper::{self, Url};
 use hyper::status::StatusCode;
 use hyper::header::{Authorization, Accept, Bearer, UserAgent, qitem};
@@ -196,6 +197,12 @@ impl GitHubClient {
         }
         let teams: Vec<Team> = try!(serde_json::from_str(&body));
         Ok(teams)
+    }
+}
+
+impl Contents {
+    pub fn decode(&self) -> Result<Vec<u8>> {
+        base64::decode(&self.content).map_err(|e| Error::GitHubContentDecode(e))
     }
 }
 

@@ -109,6 +109,10 @@ pub struct Runner {
 
 impl Runner {
     pub fn new(job: Job, config: &Config) -> Self {
+        // JW TODO: The publish URL needs to be discovered from a service bind of a
+        // builder-api-proxy or builder-api service. This is fine for now since we're just running
+        // a single public api server, but this will become an issue as soon as we attempt to
+        // allow people to run their own build cluster.
         let depot_cli =
             depot_client::Client::new(&hab_core::url::default_depot_url(), PRODUCT, VERSION, None)
                 .unwrap();
@@ -168,14 +172,13 @@ impl Runner {
                 return self.fail(net::err(ErrCode::BUILD, "wk:run:5"));
             }
         };
-
-        let mut post_processor = PostProcessor::new(&self.workspace);
-        if !post_processor.run(&mut archive, &self.auth_token) {
-            // JW TODO: We should shelve the built artifacts and allow a retry on post-processing.
-            // If the job is killed then we can kill the shelved artifacts.
+        if {
+            PostProcessor::new(&self.depot_cli, &self.workspace).run(&mut archive, &self.auth_token)
+        } {
+            // JW TODO: We should shelve the built artifacts and allow a retry on
+            // post-processing. If the job is killed then we can kill the shelved artifacts.
             return self.fail(net::err(ErrCode::POST_PROCESSOR, "wk:run:6"));
         }
-
         if let Some(err) = fs::remove_dir_all(self.workspace.out()).err() {
             error!("unable to remove out directory ({}), ERR={:?}",
                    self.workspace.out().display(),
