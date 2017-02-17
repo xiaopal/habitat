@@ -14,8 +14,9 @@ doc = false
 env_logger = "*"
 linked-hash-map = "*"
 log = "*"
-protobuf = "*"
+protobuf = "1.1.0"
 postgres = "*"
+rand = "*"
 r2d2 = "*"
 toml = { version = "*", features = ["serde"], default-features = false, git = "https://github.com/alexcrichton/toml-rs" , rev = "d39c3f7b3ec95cb3cc1e579d7d747206c66aab74" }
 
