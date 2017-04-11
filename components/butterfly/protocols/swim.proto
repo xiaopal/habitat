@@ -7,6 +7,7 @@ message Member {
   optional int32 swim_port = 4;
   optional int32 gossip_port = 5;
   optional bool persistent = 6 [default = false];
+  optional bool departed = 7 [default = false];
 }
 
 message Ping {
@@ -25,7 +26,7 @@ message PingReq {
 }
 
 message Membership {
-  enum Health { ALIVE = 1; SUSPECT = 2; CONFIRMED = 3; };
+  enum Health { ALIVE = 1; SUSPECT = 2; CONFIRMED = 3; DEPARTED = 4; };
 
   optional Member member = 1;
   optional Health health = 2;

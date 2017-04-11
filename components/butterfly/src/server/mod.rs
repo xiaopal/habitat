@@ -63,7 +63,7 @@ pub trait Suitability: Debug + Send + Sync {
 }
 
 /// The server struct. Is thread-safe.
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct Server {
     name: Arc<String>,
     member_id: Arc<String>,
@@ -81,12 +81,42 @@ pub struct Server {
     suitability_lookup: Arc<Box<Suitability>>,
     data_path: Arc<Option<PathBuf>>,
     dat_file: Arc<RwLock<Option<DatFile>>>,
+    socket: Option<UdpSocket>,
     // These are all here for testing support
     pause: Arc<AtomicBool>,
     pub trace: Arc<RwLock<Trace>>,
     swim_rounds: Arc<AtomicIsize>,
     gossip_rounds: Arc<AtomicIsize>,
     blacklist: Arc<RwLock<HashSet<String>>>,
+}
+
+impl Clone for Server {
+    fn clone(&self) -> Server {
+        Server {
+            name: self.name.clone(),
+            member_id: self.member_id.clone(),
+            member: self.member.clone(),
+            member_list: self.member_list.clone(),
+            ring_key: self.ring_key.clone(),
+            rumor_list: self.rumor_list.clone(),
+            service_store: self.service_store.clone(),
+            service_config_store: self.service_config_store.clone(),
+            service_file_store: self.service_file_store.clone(),
+            election_store: self.election_store.clone(),
+            update_store: self.update_store.clone(),
+            swim_addr: self.swim_addr.clone(),
+            gossip_addr: self.gossip_addr.clone(),
+            suitability_lookup: self.suitability_lookup.clone(),
+            data_path: self.data_path.clone(),
+            dat_file: self.dat_file.clone(),
+            pause: self.pause.clone(),
+            trace: self.trace.clone(),
+            swim_rounds: self.swim_rounds.clone(),
+            gossip_rounds: self.gossip_rounds.clone(),
+            blacklist: self.blacklist.clone(),
+            socket: None,
+        }
+    }
 }
 
 impl Server {
@@ -132,6 +162,7 @@ impl Server {
                        swim_rounds: Arc::new(AtomicIsize::new(0)),
                        gossip_rounds: Arc::new(AtomicIsize::new(0)),
                        blacklist: Arc::new(RwLock::new(HashSet::new())),
+                       socket: None,
                    })
             }
             (Err(e), _) | (_, Err(e)) => Err(Error::CannotBind(e)),
@@ -218,6 +249,14 @@ impl Server {
             Ok(socket) => socket,
             Err(e) => return Err(Error::CannotBind(e)),
         };
+        // Keep this around for departure
+        let socket_self = match socket.try_clone() {
+            Ok(socket_self) => socket_self,
+            Err(_) => return Err(Error::SocketCloneError),
+        };
+
+        self.socket = Some(socket_self);
+
         try!(socket
                  .set_read_timeout(Some(Duration::from_millis(1000)))
                  .map_err(|e| Error::SocketSetReadTimeout(e)));
@@ -387,6 +426,58 @@ impl Server {
         }
     }
 
+    /// Change the health of a `Member`, and update its `RumorKey`.
+    pub fn insert_health(&self, member: &Member, health: Health) {
+        let rk: RumorKey = RumorKey::from(&member);
+        // NOTE: This sucks so much right here. Check out how we allocate no matter what, because
+        // of just how the logic goes. The value of the trace is really high, though, so we suck it
+        // for now.
+        let trace_member_id = String::from(member.get_id());
+        let trace_incarnation = member.get_incarnation();
+        let trace_health = health.clone();
+        if self.member_list.insert_health(member, health) {
+            trace_it!(MEMBERSHIP: self,
+                      TraceKind::MemberUpdate,
+                      trace_member_id,
+                      trace_incarnation,
+                      trace_health);
+            self.rumor_list.insert(rk);
+        }
+    }
+
+    /// Set our member to departed, then send up to 10 out of order ack messages to other members to seed
+    /// our status.
+    pub fn set_departed(&self) {
+        if self.socket.is_some() {
+            let member = {
+                let mut me = self.member.write().expect("Member lock is poisoned");
+                let mut incarnation = me.get_incarnation();
+                incarnation += 1;
+                me.set_incarnation(incarnation);
+                me.set_departed(true);
+                me.clone()
+            };
+            let trace_member_id = String::from(member.get_id());
+            let trace_incarnation = member.get_incarnation();
+            self.member_list
+                .insert_health_by_id(member.get_id(), Health::Departed);
+            trace_it!(MEMBERSHIP: self,
+                      TraceKind::MemberUpdate,
+                      trace_member_id,
+                      trace_incarnation,
+                      Health::Departed);
+
+            let check_list = self.member_list.check_list(member.get_id());
+            for member in check_list.iter().take(10) {
+                let addr = member.swim_socket_address();
+                // Safe because we checked above
+                outbound::ack(&self, self.socket.as_ref().unwrap(), member, addr, None);
+            }
+        } else {
+            debug!("No socket present; server was never started, so nothing to depart");
+        }
+    }
+
     /// Given a membership record and some health, insert it into the Member List.
     fn insert_member_from_rumor(&self, member: Member, mut health: Health) {
         let mut incremented_incarnation = false;
@@ -428,6 +519,31 @@ impl Server {
     /// Insert a service rumor into the service store.
     pub fn insert_service(&self, service: Service) {
         let rk = RumorKey::from(&service);
+
+        // * If we don't have a rumor
+        // * And we do have Confirmed members for this service
+        // * Select the first sorted Confirmed member, and change it to departed
+        if !self.service_store.contains_rumor(&rk.key, &rk.id) {
+            let mut service_entries: Vec<Service> = Vec::new();
+            self.service_store
+                .with_rumors(&rk.key, |service_rumor| if self.member_list
+                       .check_health_of_by_id(service_rumor.get_member_id(),
+                                              Health::Confirmed) {
+                    service_entries.push(service_rumor.clone());
+                });
+            service_entries.sort_by_key(|k| k.get_member_id().to_string());
+            for service_rumor in service_entries.iter().take(1) {
+                if self.member_list
+                       .insert_health_by_id(service_rumor.get_member_id(), Health::Departed) {
+                    self.member_list
+                        .depart_remove(service_rumor.get_member_id());
+                    self.rumor_list
+                        .insert(RumorKey::new(message::swim::Rumor_Type::Member,
+                                              service_rumor.get_member_id().clone(),
+                                              ""));
+                }
+            }
+        }
         if self.service_store.insert(service) {
             self.rumor_list.insert(rk);
         }
@@ -449,7 +565,8 @@ impl Server {
         }
     }
 
-    /// Get all the Member ID's who are present in a given service group.
+    /// Get all the Member ID's who are present in a given service group, and eligible to vote
+    /// (alive)
     fn get_electorate(&self, key: &str) -> Vec<String> {
         let mut electorate = vec![];
         self.service_store
@@ -460,6 +577,17 @@ impl Server {
         electorate
     }
 
+    /// Get all the Member ID's who are present in a given service group, and count towards quorum.
+    pub fn get_total_population(&self, key: &str) -> usize {
+        let mut total_pop = 0;
+        self.service_store
+            .with_rumors(key, |s| if self.member_list
+                   .check_in_voting_population_by_id(s.get_member_id()) {
+                total_pop += 1;
+            });
+        total_pop
+    }
+
     /// Check if a given service group has quorum to run an election.
     ///
     /// A given group has quorum if, from this servers perspective, it has an alive population that
@@ -467,7 +595,7 @@ impl Server {
     fn check_quorum(&self, key: &str) -> bool {
         let electorate = self.get_electorate(key);
 
-        let total_population = self.service_store.len_for_key(key);
+        let total_population = self.get_total_population(key);
         let alive_population = electorate.len();
 
         if total_population < 3 {

@@ -134,6 +134,12 @@ impl SwimNet {
         self.members[from_entry].insert_member(to, Health::Alive);
     }
 
+    pub fn add_member(&mut self) {
+        let number = self.members.len() + 1;
+        self.members
+            .push(start_server(&format!("{}", number), None, 0));
+    }
+
     // Fully mesh the network
     pub fn mesh(&mut self) {
         trace_it!(TEST_NET: self, "Mesh");
@@ -203,7 +209,7 @@ impl SwimNet {
     }
 
     pub fn max_rounds(&self) -> isize {
-        3
+        4
     }
 
     pub fn max_gossip_rounds(&self) -> isize {

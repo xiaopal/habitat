@@ -294,7 +294,12 @@ impl PushWorker {
             };
             match socket.send(&payload, 0) {
                 Ok(()) => debug!("Sent rumor {:?} to {:?}", rumor_key, member),
-                Err(e) => println!("Could not send rumor to {:?}; ZMQ said: {:?}", member, e),
+                Err(e) => {
+                    println!("Could not send rumor to {:?} @ {:?}; ZMQ said: {:?}",
+                             member.get_id(),
+                             to_addr,
+                             e)
+                }
             }
         }
         self.server

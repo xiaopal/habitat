@@ -38,6 +38,7 @@ use std::collections::HashMap;
 use std::collections::hash_map::Entry;
 use std::default::Default;
 use std::ops::Deref;
+use std::cmp::Ord;
 use std::result;
 use std::sync::{Arc, RwLock};
 use std::sync::atomic::{AtomicUsize, Ordering};

@@ -43,6 +43,7 @@ pub enum Health {
     Alive,
     Suspect,
     Confirmed,
+    Departed,
 }
 
 impl From<i32> for Health {
@@ -58,6 +59,7 @@ impl From<ProtoMembership_Health> for Health {
             ProtoMembership_Health::ALIVE => Health::Alive,
             ProtoMembership_Health::SUSPECT => Health::Suspect,
             ProtoMembership_Health::CONFIRMED => Health::Confirmed,
+            ProtoMembership_Health::DEPARTED => Health::Departed,
         }
     }
 }
@@ -68,6 +70,7 @@ impl From<Health> for ProtoMembership_Health {
             Health::Alive => ProtoMembership_Health::ALIVE,
             Health::Suspect => ProtoMembership_Health::SUSPECT,
             Health::Confirmed => ProtoMembership_Health::CONFIRMED,
+            Health::Departed => ProtoMembership_Health::DEPARTED,
         }
     }
 }
@@ -78,6 +81,7 @@ impl<'a> From<&'a Health> for ProtoMembership_Health {
             &Health::Alive => ProtoMembership_Health::ALIVE,
             &Health::Suspect => ProtoMembership_Health::SUSPECT,
             &Health::Confirmed => ProtoMembership_Health::CONFIRMED,
+            &Health::Departed => ProtoMembership_Health::DEPARTED,
         }
     }
 }
@@ -88,6 +92,7 @@ impl fmt::Display for Health {
             &Health::Alive => write!(f, "Alive"),
             &Health::Suspect => write!(f, "Suspect"),
             &Health::Confirmed => write!(f, "Confirmed"),
+            &Health::Departed => write!(f, "Departed"),
         }
     }
 }
@@ -179,6 +184,7 @@ pub struct MemberList {
     pub members: Arc<RwLock<HashMap<UuidSimple, Member>>>,
     pub health: Arc<RwLock<HashMap<UuidSimple, Health>>>,
     suspect: Arc<RwLock<HashMap<UuidSimple, SteadyTime>>>,
+    depart: Arc<RwLock<HashMap<UuidSimple, SteadyTime>>>,
     initial_members: Arc<RwLock<Vec<Member>>>,
     update_counter: Arc<AtomicUsize>,
 }
@@ -211,6 +217,7 @@ impl MemberList {
             members: Arc::new(RwLock::new(HashMap::new())),
             health: Arc::new(RwLock::new(HashMap::new())),
             suspect: Arc::new(RwLock::new(HashMap::new())),
+            depart: Arc::new(RwLock::new(HashMap::new())),
             initial_members: Arc::new(RwLock::new(Vec::new())),
             update_counter: Arc::new(AtomicUsize::new(0)),
         }
@@ -258,6 +265,7 @@ impl MemberList {
         let share_rumor: bool;
         let mut start_suspicion: bool = false;
         let mut stop_suspicion: bool = false;
+        let mut stop_departure: bool = false;
 
         // If we have an existing member record..
         if let Some(current_member) =
@@ -273,6 +281,13 @@ impl MemberList {
                 // to prefer it.
             } else if member.get_incarnation() > current_member.get_incarnation() {
                 share_rumor = true;
+                if health == Health::Confirmed {
+                    stop_suspicion = true;
+                }
+                if health == Health::Departed {
+                    stop_suspicion = true;
+                    stop_departure = true;
+                }
             } else {
                 // We know we have a health if we have a record
                 let hl = self.health.read().expect("Health lock is poisoned");
@@ -285,6 +300,9 @@ impl MemberList {
                     share_rumor = true;
                     // If currently healthy and the rumor is confirmation, then we are now confirmed
                 } else if *current_health == Health::Alive && health == Health::Confirmed {
+                    share_rumor = true;
+                    // If currently healthy and the rumor is departed, then we are now departed
+                } else if *current_health == Health::Alive && health == Health::Departed {
                     share_rumor = true;
                     // If we are both alive, then nothing to see here.
                 } else if *current_health == Health::Alive && health == Health::Alive {
@@ -300,8 +318,17 @@ impl MemberList {
                 } else if *current_health == Health::Suspect && health == Health::Confirmed {
                     stop_suspicion = true;
                     share_rumor = true;
-                    // When we are currently confirmed, we stay that way until something with a
-                    // higher incarnation changes our mind.
+                    // If currently suspicious and the rumor is departed, then we are now
+                    // departed
+                } else if *current_health == Health::Suspect && health == Health::Departed {
+                    stop_suspicion = true;
+                    share_rumor = true;
+                    // If we are confirmed, and the rumor is departed, we accept the departure
+                } else if *current_health == Health::Confirmed && health == Health::Departed {
+                    share_rumor = true;
+                    stop_departure = true;
+                    // When we are currently confirmed or departed, we stay that way until something with a
+                    // higher incarnation changes our mind. (except for the above case)
                 } else {
                     share_rumor = false;
                 }
@@ -326,6 +353,12 @@ impl MemberList {
                 self.suspect
                     .write()
                     .expect("Suspect lock is poisoned")
+                    .remove(member.get_id());
+            }
+            if stop_departure == true {
+                self.depart
+                    .write()
+                    .expect("Departure lock is poisoned")
                     .remove(member.get_id());
             }
             self.members
@@ -355,6 +388,19 @@ impl MemberList {
                   .get(member_id) {
             Some(health) => Some(health.clone()),
             None => None,
+        }
+    }
+
+    pub fn check_in_voting_population_by_id(&self, member_id: &str) -> bool {
+        match self.health
+                  .read()
+                  .expect("Health lock is poisoned")
+                  .get(member_id) {
+            Some(&Health::Alive) |
+            Some(&Health::Suspect) |
+            Some(&Health::Confirmed) => true,
+            Some(&Health::Departed) => false,
+            None => false,
         }
     }
 
@@ -549,12 +595,41 @@ impl MemberList {
         }
     }
 
+    /// Iterates over every suspected membership entry, calling the given closure.
+    pub fn with_departures<F>(&self, mut with_closure: F) -> ()
+        where F: FnMut((&str, &SteadyTime)) -> ()
+    {
+        for (id, departure_time) in
+            self.depart
+                .read()
+                .expect("Departure list lock is poisoned")
+                .iter() {
+            with_closure((id, departure_time));
+        }
+    }
+
     /// Expires a member from the suspect list.
     pub fn expire(&self, member_id: &str) {
         let mut suspects = self.suspect
             .write()
             .expect("Suspect list lock is poisoned");
         suspects.remove(member_id);
+    }
+
+    /// Sets a departure time for a member who has been confirmed
+    pub fn depart(&self, member_id: &str) {
+        let mut depart = self.depart
+            .write()
+            .expect("Departure list lock is poisoned");
+        depart.insert(member_id.to_string(), SteadyTime::now());
+    }
+
+    /// Removes a member from the departure list
+    pub fn depart_remove(&self, member_id: &str) {
+        let mut depart = self.depart
+            .write()
+            .expect("Departure list lock is poisoned");
+        depart.remove(member_id);
     }
 
     pub fn contains_member(&self, member_id: &str) -> bool {
@@ -862,6 +937,51 @@ mod tests {
 
             assert_eq!(ml.insert(member_two, Health::Confirmed), false);
             assert!(ml.check_health_of(&mcheck_two, Health::Confirmed));
+        }
+
+        #[test]
+        fn insert_equal_incarnation_current_alive_new_departed() {
+            let ml = MemberList::new();
+            let member_one = Member::default();
+            let mcheck_one = member_one.clone();
+            let member_two = member_one.clone();
+            let mcheck_two = member_two.clone();
+
+            assert_eq!(ml.insert(member_one, Health::Alive), true);
+            assert!(ml.check_health_of(&mcheck_one, Health::Alive));
+
+            assert_eq!(ml.insert(member_two, Health::Departed), true);
+            assert!(ml.check_health_of(&mcheck_two, Health::Departed));
+        }
+
+        #[test]
+        fn insert_equal_incarnation_current_suspect_new_departed() {
+            let ml = MemberList::new();
+            let member_one = Member::default();
+            let mcheck_one = member_one.clone();
+            let member_two = member_one.clone();
+            let mcheck_two = member_two.clone();
+
+            assert_eq!(ml.insert(member_one, Health::Suspect), true);
+            assert!(ml.check_health_of(&mcheck_one, Health::Suspect));
+
+            assert_eq!(ml.insert(member_two, Health::Departed), true);
+            assert!(ml.check_health_of(&mcheck_two, Health::Departed));
+        }
+
+        #[test]
+        fn insert_equal_incarnation_current_confirmed_new_departed() {
+            let ml = MemberList::new();
+            let member_one = Member::default();
+            let mcheck_one = member_one.clone();
+            let member_two = member_one.clone();
+            let mcheck_two = member_two.clone();
+
+            assert_eq!(ml.insert(member_one, Health::Confirmed), true);
+            assert!(ml.check_health_of(&mcheck_one, Health::Confirmed));
+
+            assert_eq!(ml.insert(member_two, Health::Departed), true);
+            assert!(ml.check_health_of(&mcheck_two, Health::Departed));
         }
 
     }
