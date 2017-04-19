@@ -30,7 +30,7 @@ use std::result;
 use std::sync::{Arc, RwLock};
 use std::thread;
 
-use hcore::os::process::{HabChild, ExitStatusExt};
+use hcore::os::process::{HabChild, ExitStatusExt, Satan};
 use hcore::util::perm::set_owner;
 use hcore::package::PackageInstall;
 use hcore::service::ServiceGroup;
@@ -156,8 +156,7 @@ impl Supervisor {
                       &self.runtime_config.svc_user,
                       &self.runtime_config.svc_group);
             self.enter_state(ProcessState::Start);
-            let mut child = try!(try!(util::create_command(self.run_cmd(), &self.runtime_config))
-                                     .spawn());
+            let mut child = try!(Satan::spawn(try!(util::create_command(self.run_cmd(), &self.runtime_config))));
 
             let hab_child = try!(HabChild::from(&mut child));
             self.child = Some(hab_child);
@@ -370,9 +369,9 @@ impl Drop for Supervisor {
 }
 
 /// Consume output from a child process until EOF, then finish
-fn child_reader(child: &mut Child, package_name: String) -> Result<()> {
-    let c_stdout = match child.stdout {
-        Some(ref mut s) => s,
+fn child_reader(child: &mut Satan, package_name: String) -> Result<()> {
+    let c_stdout = match child.stdout() {
+        Some(mut s) => s,
         None => return Err(sup_error!(Error::UnpackFailed)),
     };
 

@@ -14,7 +14,7 @@
 
 use std::ffi::OsString;
 use std::path::PathBuf;
-use std::process::{self, Command};
+use std::process::{self, Command, ChildStdout};
 use std::ptr;
 use std::io;
 use time::{Duration, SteadyTime};
@@ -24,7 +24,7 @@ use winapi;
 
 use error::{Error, Result};
 
-use super::{HabExitStatus, ExitStatusExt, ShutdownMethod};
+use super::{HabExitStatus, ExitStatusExt, Satan, ShutdownMethod};
 
 const STILL_ACTIVE: u32 = 259;
 
@@ -110,22 +110,22 @@ impl Child {
     // process dies before we can get it, we will just wait() on the
     // std::process::Child and cache the exit_status which we will return
     // when status is called.
-    pub fn new(child: &mut process::Child) -> Result<Child> {
+    pub fn new(child: &mut Satan) -> Result<Child> {
         let (win_handle, status) = match handle_from_pid(child.id()) {
             Some(handle) => (Some(handle), Ok(None)),
-            _ => {
-                (None,
-                 {
-                     match child.wait() {
-                         Ok(exit) => Ok(Some(exit.code().unwrap() as u32)),
-                         Err(e) => {
-                             Err(format!("Failed to retrieve exit code for pid {} : {}",
-                                         child.id(),
-                                         e))
-                         }
-                     }
-                 })
-            }
+            _ => (None, Err(format!("GAME OVER. PLEASE TRY AGAIN."))),
+            //     (None,
+            //      {
+            //          match child.wait() {
+            //              Ok(exit) => Ok(Some(exit.code().unwrap() as u32)),
+            //              Err(e) => {
+            //                  Err(format!("Failed to retrieve exit code for pid {} : {}",
+            //                              child.id(),
+            //                              e))
+            //              }
+            //          }
+            //      })
+            // }
         };
 
         match status {
@@ -247,6 +247,23 @@ impl ExitStatusExt for HabExitStatus {
     }
 
     fn signal(&self) -> Option<u32> {
+        None
+    }
+}
+
+
+pub struct Spawner {
+
+}
+
+impl Spawner {
+    pub fn spawn(command: Command) -> Result<Self> {
+        Ok(Self {})
+    }
+    pub fn id(&self) -> u32 {
+        0
+    }
+    pub fn stdout(&self) -> Option<ChildStdout> {
         None
     }
 }

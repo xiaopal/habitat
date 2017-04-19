@@ -13,7 +13,7 @@
 // limitations under the License.
 
 use std::fmt;
-use std::process::Child;
+use std::process::{Child, Command, ChildStdout};
 
 use error::Result;
 
@@ -26,7 +26,7 @@ mod imp;
 #[path = "linux.rs"]
 mod imp;
 
-pub use self::imp::{become_command, current_pid, is_alive};
+pub use self::imp::{become_command, current_pid, is_alive, Spawner};
 
 pub enum ShutdownMethod {
     AlreadyExited,
@@ -50,7 +50,7 @@ pub struct HabChild {
 }
 
 impl HabChild {
-    pub fn from(inner: &mut Child) -> Result<HabChild> {
+    pub fn from(inner: &mut Satan) -> Result<HabChild> {
         match imp::Child::new(inner) {
             Ok(child) => Ok(HabChild { inner: child }),
             Err(e) => Err(e),
@@ -89,4 +89,20 @@ impl HabExitStatus {
 pub trait ExitStatusExt {
     fn code(&self) -> Option<u32>;
     fn signal(&self) -> Option<u32>;
+}
+
+pub struct Satan {
+    inner: imp::Spawner,
+}
+
+impl Satan {
+    pub fn spawn(command: Command) -> Result<Self> {
+        Ok(Self {inner: Spawner::spawn(command).unwrap()})
+    }
+    pub fn id(&self) -> u32 {
+        self.inner.id()
+    }
+    pub fn stdout(&self) -> Option<ChildStdout> {
+        self.inner.stdout()
+    }
 }
