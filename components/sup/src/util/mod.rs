@@ -18,6 +18,7 @@ pub mod pkg;
 pub mod sys;
 pub mod users;
 
+use libc;
 use std::ffi::OsStr;
 use std::net::{Ipv4Addr, SocketAddrV4};
 use std::str::FromStr;
@@ -78,7 +79,15 @@ pub fn create_command<S: AsRef<OsStr>>(path: S, cfg: &RuntimeConfig) -> Result<C
     let gid = os::users::get_gid_by_name(&cfg.svc_group)
         .ok_or(sup_error!(Error::Permissions(format!("No gid for group '{}' could be found",
                                                      &cfg.svc_group))))?;
-
+    // we want the command to spawn processes in their own process group
+    // and not the same group as the supervisor. Otherwise if a child process
+    // sends SIGTERM to the group, the supervisor could be terminated.
+    cmd.before_exec(|| {
+                        unsafe {
+                            libc::setpgid(0, 0);
+                        }
+                        Ok(())
+                    });
     cmd.stdin(Stdio::null())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
